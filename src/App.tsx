@@ -13,7 +13,26 @@ const [editing,setEditing]=useState<Product|null>(null),[form,setForm]=useState(
 const isSuper=profile?.role==='super_admin',isAdmin=profile?.role==='admin'||isSuper; const shown=useMemo(()=>products.filter(p=>p.active&&p.name.toLowerCase().includes(search.toLowerCase())&&(category==='All categories'||p.category===category)),[products,search,category]);
 useEffect(()=>{let sub:{unsubscribe:()=>void}|undefined;async function init(){if(!supabase)return;const {data:{session}}=await supabase.auth.getSession();if(session)await loadProfile(session.user.id,session.user.email||'');const x=supabase.auth.onAuthStateChange((_e,s)=>{if(s)void loadProfile(s.user.id,s.user.email||'');else setProfile(null)});sub=x.data.subscription;await loadProducts()}void init();return()=>sub?.unsubscribe()},[]);
 useEffect(()=>{if(profile&&isAdmin)void refresh()},[profile?.id,profile?.role,page]);
-useEffect(()=>{if(!supabase||profile?.role!=='super_admin')return;const channel=supabase.channel('nyota-order-updates').on('postgres_changes',{event:'*',schema:'public',table:'orders'},()=>{void refresh()}).subscribe();return()=>{void supabase.removeChannel(channel)}},[profile?.id,profile?.role]);
+useEffect(() => {
+  const client = supabase;
+
+  if (!client || profile?.role !== 'super_admin') {
+    return;
+  }
+
+  const channel = client
+    .channel('nyota-order-updates')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'orders' },
+      () => { void refresh(); }
+    )
+    .subscribe();
+
+  return () => {
+    void client.removeChannel(channel);
+  };
+}, [profile?.id, profile?.role]);
 useEffect(()=>{const handler=(e:KeyboardEvent)=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='l'){e.preventDefault();setAuth(true)}};window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler)},[]);
 async function loadProfile(id:string,em:string){if(!supabase)return;const {data}=await supabase.from('profiles').select('*').eq('id',id).maybeSingle();if(data&&data.status!=='active'){setProfile(null);setAuthError('This account is inactive. Contact the super administrator.');await supabase.auth.signOut();return}setProfile(data?data as Profile:{id,email:em,role:'customer',display_name:null})}
 async function loadProducts(){if(!supabase)return;const {data}=await supabase.from('products').select('*').eq('active',true).order('created_at',{ascending:false});if(data)setProducts(data as Product[])}
