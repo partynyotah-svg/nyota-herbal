@@ -1,0 +1,12 @@
+[functions.notify-superadmin]
+verify_jwt = true
+
+[functions.admin-users]
+verify_jwt = true
+
+[functions.mpesa-stk-push]
+verify_jwt = true
+
+# Safaricom cannot send a Supabase user JWT. This callback is protected by MPESA_CALLBACK_SECRET in its query string.
+[functions.mpesa-callback]
+verify_jwt = false
